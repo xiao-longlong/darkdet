@@ -1,0 +1,27 @@
+version: "3.9"
+services:  
+  darkimage_detect:
+    image: lux4.x-contion.top:500/x-contion/cuda_conda_pytorch2:cu118-py39-torch20
+    entrypoint: "/usr/sbin/sshd -D"
+    privileged: true
+    container_name: darkimage_detect
+    environment:
+      - DEBUG=1
+      - SHOW='true'
+      - DOCKER_BUILDKIT=1
+      - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility,graphics
+    volumes:
+      - ./:/workspace 
+      - /data/xiaolong/Datasets:/data/Datasets 
+      - /data/xiaolong/Weights:/data/Weights
+      - /data/xiaolong/Outputs:/data/Outputs
+    deploy:
+      mode: replicated
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              count: all 
+          memory: 16g 
+    shm_size: 16gb
