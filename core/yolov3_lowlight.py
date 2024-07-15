@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import core.utils as utils
-import darkdet.common as common
-import cfg
-from darkdet.backbone import darknet53
+import utils as utils
+import common as common
+from config_lowlight  import cfg
+from backbone import Darknet53
 
 class YOLOV3(nn.Module):
     """Implement PyTorch yolov3 here"""
@@ -27,6 +27,8 @@ class YOLOV3(nn.Module):
         self.pred_sbbox         = None
         self.pred_mbbox         = None
         self.pred_lbbox         = None
+
+        self.darknet53 = Darknet53()
 
         self.conv_lbbox_model = nn.Sequential(
             common.ConvBlock(1024, 512, kernel_size=1, downsample=False, bn=True, activate=True),
@@ -99,7 +101,7 @@ class YOLOV3(nn.Module):
 
         self.recovery_loss = torch.sum((filtered_image_batch - input_data_clean) ** 2)
 
-        route_1, route_2, input_data = darknet53(input_data, self.trainable)
+        route_1, route_2, input_data = self.darknet53(input_data, self.trainable)
 
         input_data = self.conv_lbbox_model(input_data)
         self.conv_lbbox = self.output_lbbox(input_data)

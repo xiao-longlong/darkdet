@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from darkdet.util_filters_unfinish import *
+from util_filters import *
 
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, downsample=False, bn=True, activate=True):

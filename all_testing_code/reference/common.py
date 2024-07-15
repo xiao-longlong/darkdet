@@ -4,7 +4,7 @@
 
 import tensorflow as tf
 import tensorflow.contrib.layers as ly
-from util_filters import *
+from reference.util_filters import *
 
 
 def extract_parameters(net, cfg, trainable):

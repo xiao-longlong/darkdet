@@ -1,16 +1,12 @@
 #! /usr/bin/env python
 # coding=utf-8
 
-
 import os
 import cv2
 import random
 import numpy as np
-import tensorflow as tf
-import core.utils as utils
-from core.config_lowlight import cfg
-
-
+from .utils import *
+from darkdet.core.config_lowlight import cfg
 
 class Dataset(object):
     """implement Dataset here"""
@@ -47,47 +43,46 @@ class Dataset(object):
 
     def __next__(self):
 
-        with tf.device('/cpu:0'):
-            self.train_input_size = random.choice(self.train_input_sizes)
-            self.train_output_sizes = self.train_input_size // self.strides
+        self.train_input_size = random.choice(self.train_input_sizes)
+        self.train_output_sizes = self.train_input_size // self.strides
 
-            batch_image = np.zeros((self.batch_size, self.train_input_size, self.train_input_size, 3))
+        batch_image = np.zeros((self.batch_size, self.train_input_size, self.train_input_size, 3))
 
-            batch_label_sbbox = np.zeros((self.batch_size, self.train_output_sizes[0], self.train_output_sizes[0],
-                                          self.anchor_per_scale, 5 + self.num_classes))
-            batch_label_mbbox = np.zeros((self.batch_size, self.train_output_sizes[1], self.train_output_sizes[1],
-                                          self.anchor_per_scale, 5 + self.num_classes))
-            batch_label_lbbox = np.zeros((self.batch_size, self.train_output_sizes[2], self.train_output_sizes[2],
-                                          self.anchor_per_scale, 5 + self.num_classes))
+        batch_label_sbbox = np.zeros((self.batch_size, self.train_output_sizes[0], self.train_output_sizes[0],
+                                        self.anchor_per_scale, 5 + self.num_classes))
+        batch_label_mbbox = np.zeros((self.batch_size, self.train_output_sizes[1], self.train_output_sizes[1],
+                                        self.anchor_per_scale, 5 + self.num_classes))
+        batch_label_lbbox = np.zeros((self.batch_size, self.train_output_sizes[2], self.train_output_sizes[2],
+                                        self.anchor_per_scale, 5 + self.num_classes))
 
-            batch_sbboxes = np.zeros((self.batch_size, self.max_bbox_per_scale, 4))
-            batch_mbboxes = np.zeros((self.batch_size, self.max_bbox_per_scale, 4))
-            batch_lbboxes = np.zeros((self.batch_size, self.max_bbox_per_scale, 4))
+        batch_sbboxes = np.zeros((self.batch_size, self.max_bbox_per_scale, 4))
+        batch_mbboxes = np.zeros((self.batch_size, self.max_bbox_per_scale, 4))
+        batch_lbboxes = np.zeros((self.batch_size, self.max_bbox_per_scale, 4))
 
-            num = 0
-            if self.batch_count < self.num_batchs:
-                while num < self.batch_size:
-                    index = self.batch_count * self.batch_size + num
-                    if index >= self.num_samples: index -= self.num_samples
-                    annotation = self.annotations[index]
-                    image, bboxes = self.parse_annotation(annotation)
-                    label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.preprocess_true_boxes(bboxes)
+        num = 0
+        if self.batch_count < self.num_batchs:
+            while num < self.batch_size:
+                index = self.batch_count * self.batch_size + num
+                if index >= self.num_samples: index -= self.num_samples
+                annotation = self.annotations[index]
+                image, bboxes = self.parse_annotation(annotation)
+                label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.preprocess_true_boxes(bboxes)
 
-                    batch_image[num, :, :, :] = image
-                    batch_label_sbbox[num, :, :, :, :] = label_sbbox
-                    batch_label_mbbox[num, :, :, :, :] = label_mbbox
-                    batch_label_lbbox[num, :, :, :, :] = label_lbbox
-                    batch_sbboxes[num, :, :] = sbboxes
-                    batch_mbboxes[num, :, :] = mbboxes
-                    batch_lbboxes[num, :, :] = lbboxes
-                    num += 1
-                self.batch_count += 1
-                return batch_image, batch_label_sbbox, batch_label_mbbox, batch_label_lbbox, \
-                       batch_sbboxes, batch_mbboxes, batch_lbboxes
-            else:
-                self.batch_count = 0
-                np.random.shuffle(self.annotations)
-                raise StopIteration
+                batch_image[num, :, :, :] = image
+                batch_label_sbbox[num, :, :, :, :] = label_sbbox
+                batch_label_mbbox[num, :, :, :, :] = label_mbbox
+                batch_label_lbbox[num, :, :, :, :] = label_lbbox
+                batch_sbboxes[num, :, :] = sbboxes
+                batch_mbboxes[num, :, :] = mbboxes
+                batch_lbboxes[num, :, :] = lbboxes
+                num += 1
+            self.batch_count += 1
+            return batch_image, batch_label_sbbox, batch_label_mbbox, batch_label_lbbox, \
+                    batch_sbboxes, batch_mbboxes, batch_lbboxes
+        else:
+            self.batch_count = 0
+            np.random.shuffle(self.annotations)
+            raise StopIteration
 
     def random_horizontal_flip(self, image, bboxes):
 
@@ -248,7 +243,3 @@ class Dataset(object):
 
     def __len__(self):
         return self.num_batchs
-
-
-
-

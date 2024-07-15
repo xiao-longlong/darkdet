@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # coding=utf-8
 from easydict import EasyDict as edict
-from filters_lowlight import *
+from darkdet.filters_lowlight import *
 import argparse
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--exp_num', dest='exp_num', type=str, default='58', help='current experiment number')
@@ -100,7 +100,6 @@ __C.YOLO.UPSAMPLE_METHOD        = "resize"
 
 __C.YOLO.ISP_FLAG            = args.ISP_FLAG
 
-
 # Train options
 __C.TRAIN                       = edict()
 
@@ -114,8 +113,6 @@ __C.TRAIN.WARMUP_EPOCHS         = 2
 __C.TRAIN.FISRT_STAGE_EPOCHS    = args.epoch_first_stage
 __C.TRAIN.SECOND_STAGE_EPOCHS   = args.epoch_second_stage
 __C.TRAIN.INITIAL_WEIGHT        = args.pre_train
-
-
 
 # TEST options
 __C.TEST                        = edict()
@@ -131,9 +128,3 @@ __C.TEST.WEIGHT_FILE            = args.WEIGHT_FILE
 __C.TEST.SHOW_LABEL             = True
 __C.TEST.SCORE_THRESHOLD        = 0.3
 __C.TEST.IOU_THRESHOLD          = 0.45
-
-
-
-
-
-

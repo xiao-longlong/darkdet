@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import logging
 from contextlib import contextmanager
 import numpy as np
-from darkdet.util_filters_unfinish import rgb2lum, tanh_range, lerp
+from darkdet.core.util_filters import rgb2lum, tanh_range, lerp
 import cv2 as cv
 import math
 

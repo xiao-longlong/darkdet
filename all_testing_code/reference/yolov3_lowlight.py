@@ -5,7 +5,7 @@
 import numpy as np
 import tensorflow as tf
 import core.utils as utils
-import darkdet.common as common
+import darkdet.core.common as common
 import core.backbone as backbone
 from core.config_lowlight import cfg
 

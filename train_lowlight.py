@@ -1,18 +1,16 @@
 import os
 import time
-import shutil
 import numpy as np
-import core.utils as utils
 import torch
 import torch.optim as optim
-import torch.nn as nn
 from tqdm import tqdm
+
+import core.utils as utils
 from core.dataset_lowlight import Dataset
-from darkdet.yolov3_lowlight import YOLOV3
+from core.yolov3_lowlight import YOLOV3
 from core.config_lowlight import cfg
 from core.config_lowlight import args
 import random
-
 
 # wxl：替换的步骤不一定等价，显卡可见待修改。
 # Check device

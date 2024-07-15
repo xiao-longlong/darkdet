@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # coding=utf-8
 from easydict import EasyDict as edict
-from filters_lowlight import *
+from darkdet.filters_lowlight import *
 import argparse
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--exp_num', dest='exp_num', type=str, default='58', help='current experiment number')
@@ -21,9 +21,6 @@ parser.add_argument('--WEIGHT_FILE', dest='WEIGHT_FILE', nargs='*', default='./e
 parser.add_argument('--pre_train', dest='pre_train', default='NULL', help='the path of pretrained models if is not null. not used for now')
 # we trained our model from scratch.
 
-
-
-
 args = parser.parse_args()
 
 
@@ -37,19 +34,20 @@ cfg                             = __C
 # Filter Parameters
 ###########################################################################
 
-
-
 cfg.filters = [ImprovedWhiteBalanceFilter,  GammaFilter,
     ToneFilter, ContrastFilter, UsmFilter
 ]
-cfg.num_filter_parameters = 14
 
+# wxl：这里记录了滤波器的参数数量。
+# wxl：是通过前后参数起始位置确定的。
+cfg.num_filter_parameters = 14
 cfg.wb_begin_param = 0
 cfg.gamma_begin_param = 3
 cfg.tone_begin_param = 4
 cfg.contrast_begin_param = 12
 cfg.usm_begin_param = 13
 
+# wxl：这里是确定滤波器曲线相关的参数，或者控制滤波器参数的相关参数。
 cfg.curve_steps = 4
 cfg.gamma_range = 2.5
 cfg.exposure_range = 3.5
@@ -61,8 +59,7 @@ cfg.defog_range = (0.5, 1.0)
 cfg.usm_range = (0.0, 2.5)
 cfg.contrast_range = (0.0, 1.0)
 
-
-
+# wxl：这里是未知的参数。
 # Masking is DISABLED
 cfg.masking = False
 cfg.minimum_strength = 0.3
@@ -131,9 +128,3 @@ __C.TEST.WEIGHT_FILE            = args.WEIGHT_FILE
 __C.TEST.SHOW_LABEL             = True
 __C.TEST.SCORE_THRESHOLD        = 0.3
 __C.TEST.IOU_THRESHOLD          = 0.45
-
-
-
-
-
-

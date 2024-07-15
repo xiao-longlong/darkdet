@@ -1,12 +1,10 @@
 #! /usr/bin/env python
 # coding=utf-8
 
-
 import cv2
 import random
 import colorsys
 import numpy as np
-import tensorflow as tf
 
 def read_class_names(class_file_name):
     '''loads class name from a file'''
@@ -130,16 +128,16 @@ def bboxes_iou(boxes1, boxes2):
 
 
 
-def read_pb_return_tensors(graph, pb_file, return_elements):
+# def read_pb_return_tensors(graph, pb_file, return_elements):
 
-    with tf.gfile.FastGFile(pb_file, 'rb') as f:
-        frozen_graph_def = tf.GraphDef()
-        frozen_graph_def.ParseFromString(f.read())
+#     with tf.gfile.FastGFile(pb_file, 'rb') as f:
+#         frozen_graph_def = tf.GraphDef()
+#         frozen_graph_def.ParseFromString(f.read())
 
-    with graph.as_default():
-        return_elements = tf.import_graph_def(frozen_graph_def,
-                                              return_elements=return_elements)
-    return return_elements
+#     with graph.as_default():
+#         return_elements = tf.import_graph_def(frozen_graph_def,
+#                                               return_elements=return_elements)
+#     return return_elements
 
 
 def nms(bboxes, iou_threshold, sigma=0.3, method='nms'):

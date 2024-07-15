@@ -1,5 +1,5 @@
 import torch.nn as nn
-from darkdet.common import ConvBlock, ResidualBlock
+from common import ConvBlock, ResidualBlock
 
 class Darknet53(nn.Module):
     def __init__(self, trainable=True):
