@@ -5,8 +5,8 @@ import os
 import cv2
 import random
 import numpy as np
-from .utils import *
-from darkdet.core.config_lowlight import cfg
+import core.utils as utils
+from core.config_lowlight import cfg
 
 class Dataset(object):
     """implement Dataset here"""
@@ -43,7 +43,8 @@ class Dataset(object):
 
     def __next__(self):
 
-        self.train_input_size = random.choice(self.train_input_sizes)
+        self.train_input_size = 256
+        # self.train_input_size = random.choice(self.train_input_sizes)
         self.train_output_sizes = self.train_input_size // self.strides
 
         batch_image = np.zeros((self.batch_size, self.train_input_size, self.train_input_size, 3))

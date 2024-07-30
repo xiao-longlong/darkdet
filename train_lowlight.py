@@ -12,6 +12,8 @@ from core.config_lowlight import cfg
 from core.config_lowlight import args
 import random
 
+torch.autograd.set_detect_anomaly(True)
+
 # wxl：替换的步骤不一定等价，显卡可见待修改。
 # Check device
 device = torch.device("cuda" if args.use_gpu else "cpu")
@@ -76,10 +78,8 @@ class YoloTrain:
                                                  self.steps_per_period, self.learn_rate_init, self.learn_rate_end)
         
         
-
         if os.path.exists(self.initial_weight):
             self.model.load_state_dict(torch.load(self.initial_weight))
-
         self.global_step = 0
 
     # 没有二阶段
@@ -97,9 +97,9 @@ class YoloTrain:
                 
                 images, labels_sbbox, labels_mbbox, labels_lbbox, \
                 true_sbboxes, true_mbboxes, true_lbboxes = train_data
-
+                
+                lowlight_param = 1
                 if args.lowlight_FLAG:
-                    lowlight_param = 1
                     if random.randint(0, 2) > 0:
                         lowlight_param = random.uniform(1.5, 5)
                 else:
@@ -109,15 +109,23 @@ class YoloTrain:
                 input_data = np.power(images, lowlight_param)
                 input_data_clean = images
 
-                input_data = input_data.to(device)
-                labels_sbbox = labels_sbbox.to(device)
-                labels_mbbox = labels_mbbox.to(device)
-                labels_lbbox = labels_lbbox.to(device)
-                true_sbboxes = true_sbboxes.to(device)
-                true_mbboxes = true_mbboxes.to(device)
-                true_lbboxes = true_lbboxes.to(device)
-                input_data_clean = input_data_clean.to(device)
+                input_data = torch.from_numpy(input_data).to(device).to(torch.float32)
+                # b h w a n
+                labels_sbbox = torch.from_numpy(labels_sbbox).to(device)
+                labels_mbbox = torch.from_numpy(labels_mbbox).to(device)
+                labels_lbbox = torch.from_numpy(labels_lbbox).to(device)
+                # b ? ?
+                true_sbboxes = torch.from_numpy(true_sbboxes).to(device)
+                true_mbboxes = torch.from_numpy(true_mbboxes).to(device)
+                true_lbboxes = torch.from_numpy(true_lbboxes).to(device)
 
+                input_data_clean = torch.from_numpy(input_data_clean).to(device).to(torch.float32)
+
+                # bchw
+                input_data = input_data.permute(0, 3, 1, 2)
+                # bchw
+                input_data_clean = input_data_clean.permute(0, 3, 1, 2)
+                # todo 检查model中是否有错误的转置
                 self.model(input_data, input_data_clean)
                 giou_loss, conf_loss, prob_loss, recovery_loss = self.model.compute_loss(labels_sbbox, labels_mbbox, labels_lbbox, true_sbboxes, true_mbboxes, true_lbboxes)
                 loss = giou_loss + conf_loss + prob_loss

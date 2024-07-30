@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import logging
 from contextlib import contextmanager
 import numpy as np
-from darkdet.core.util_filters import rgb2lum, tanh_range, lerp
+from core.util_filters import rgb2lum, tanh_range, lerp
 import cv2 as cv
 import math
 
@@ -35,6 +35,9 @@ class Filter:
     def process(self, img, param):
         assert False
 
+    def debug_info_batched(self):
+        return False
+
     def no_high_res(self):
         return False
     
@@ -59,6 +62,7 @@ class Filter:
             debug_info['filter_parameters'] = filter_parameters
         else:
             debug_info['filter_parameters'] = filter_parameters[0]
+        print("wxl:feashape",filter_parameters.shape)
         low_res_output = self.process(img, filter_parameters)
         if high_res is not None:
             if self.no_high_res():
@@ -167,24 +171,25 @@ class UsmFilter(Filter):
             return torch.unsqueeze(k, 1) * k
         kernel_i = make_gaussian_2d_kernel(5)
         print('kernel_i.shape', kernel_i.shape)
-        kernel_i = kernel_i.unsqueeze(2).unsqueeze(3).repeat(1, 1, 1, 1)
+        # kernel_i = kernel_i.unsqueeze(0).unsqueeze(1).repeat(1, 1, 1, 1).to("cuda:0")
+        kernel_i = kernel_i.unsqueeze(0).unsqueeze(1).to("cuda:0")
         pad_w = (25 - 1) // 2
         padded = F.pad(img, (pad_w, pad_w, pad_w, pad_w), mode='reflect')
         outputs = []
         for channel_idx in range(3):
-            data_c = padded[:, :, :, channel_idx:(channel_idx + 1)]
+            data_c = padded[:, channel_idx:(channel_idx + 1), :, :]
             data_c = F.conv2d(data_c, kernel_i, stride=1)
             outputs.append(data_c)
         output = torch.cat(outputs, dim=1)
-        img_out = (img - output) * param[:, None, None, :] + img
+        img_out = (img - output) * param[:, :, None, None] + img
         return img_out
     
 class GammaFilter(Filter):
-  def __init__(self, net, cfg):
-    Filter.__init__(self, net, cfg)
-    self.short_name = 'G'
-    self.begin_filter_parameter = cfg.gamma_begin_param
-    self.num_filter_parameters = 1
+    def __init__(self, net, cfg):
+        Filter.__init__(self, net, cfg)
+        self.short_name = 'G'
+        self.begin_filter_parameter = cfg.gamma_begin_param
+        self.num_filter_parameters = 1
 
     def filter_param_regressor(self, features):
         log_gamma_range = np.log(self.cfg.gamma_range)
@@ -192,7 +197,7 @@ class GammaFilter(Filter):
     
     def process(self, img, param):
         param_1 = param.repeat(1, 3)
-        return torch.pow(torch.maximum(img, 0.001), param_1[:, None, None, :])
+        return torch.pow(torch.clamp(img, min=0.001), param_1[:, :, None, None])
     
 class ImprovedWhiteBalanceFilter(Filter):
 
@@ -205,7 +210,7 @@ class ImprovedWhiteBalanceFilter(Filter):
 
     def filter_param_regressor(self, features):
         log_wb_range = 0.5
-        mask = torch.tensor([[0, 1, 1]], dtype=torch.float32)
+        mask = torch.tensor([[0, 1, 1]], dtype=torch.float32).to("cuda")
         # mask = torch.tensor([[1, 0, 1]], dtype=torch.float32)
 
         print(mask.shape)
@@ -219,7 +224,7 @@ class ImprovedWhiteBalanceFilter(Filter):
         return color_scaling
 
     def process(self, img, param):
-        return img * param[:, None, None, :]
+        return img * param[:, :, None, None]
     
 
 class ColorFilter(Filter):
@@ -259,7 +264,7 @@ class ToneFilter(Filter):
         self.num_filter_parameters = cfg.curve_steps
 
     def filter_param_regressor(self, features):
-        tone_curve = features.view(-1, 1, self.cfg.curve_steps)
+        tone_curve = features.view(-1, 1, self.cfg.curve_steps).unsqueeze(1).unsqueeze(2)
         tone_curve = tanh_range(*self.cfg.tone_curve_range)(tone_curve)
         return tone_curve
 
@@ -331,7 +336,8 @@ class ContrastFilter(Filter):
         return torch.tanh(features)
 
     def process(self, img, param):
-        luminance = torch.minimum(torch.maximum(rgb2lum(img), 0.0), 1.0)
+        luminance = torch.clamp(rgb2lum(img), 0.0, 1.0)
+        # luminance = torch.minimum(torch.maximum(rgb2lum(img), 0.0), 1.0)
         contrast_lum = -torch.cos(math.pi * luminance) * 0.5 + 0.5
         contrast_image = img / (luminance + 1e-6) * contrast_lum
         return lerp(img, contrast_image, param[:, :, None, None])

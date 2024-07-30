@@ -4,14 +4,32 @@
     // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
+        {
+            "name": "my_conv_test",
+            "type": "python",
+            "request": "launch",
+            "program": "/workspace/all_testing_code/model_test/conv_test.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
         {
             "name": "自训练",
             "type": "python",
             "request": "launch",
-            "program": "/workspace/darkdet/train_lowlight.py",
+            "program": "/workspace/train_lowlight.py",
             "console": "integratedTerminal",
-            "justMyCode": true,
+            "justMyCode": false,
             "cwd": "/workspace"
-        }
+        },
+        {
+            "name": "test_reshape",
+            "type": "python",
+            "request": "launch",
+            "program": "/workspace/test/func_test/reshape_test.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "/workspace"
+        },
     ]
 }

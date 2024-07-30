@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from util_filters import *
+from core.util_filters import *
 
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, downsample=False, bn=True, activate=True):
@@ -13,7 +13,7 @@ class ConvBlock(nn.Module):
         if bn:
             layers.append(nn.BatchNorm2d(out_channels))
         if activate:
-            layers.append(nn.LeakyReLU(0.1, inplace=True))
+            layers.append(nn.LeakyReLU(0.1, inplace=False))
         self.conv_block = nn.Sequential(*layers)
 
     def forward(self, x):
@@ -64,6 +64,9 @@ class ExtractParameters2(nn.Module):
         print('extract_parameters_2 CNN:')
         print('    ', net.shape)
         net = self.conv_layers(net)
+
+        # wxl:由于转置等操作导致索引不连续，使用contiguous连续化
+        net = net.contiguous()
         net = net.view(-1, 2048)
         features = F.leaky_relu(self.fc1(net), 0.1)
         filter_features = self.fc2(features)

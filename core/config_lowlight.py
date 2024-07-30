@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # coding=utf-8
 from easydict import EasyDict as edict
-from darkdet.filters_lowlight import *
+from filters_lowlight import *
 import argparse
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--exp_num', dest='exp_num', type=str, default='58', help='current experiment number')
@@ -93,7 +93,7 @@ __C.YOLO.MOVING_AVE_DECAY       = 0.9995
 __C.YOLO.STRIDES                = [8, 16, 32]
 __C.YOLO.ANCHOR_PER_SCALE       = 3
 __C.YOLO.IOU_LOSS_THRESH        = 0.5
-__C.YOLO.UPSAMPLE_METHOD        = "resize"
+__C.YOLO.UPSAMPLE_METHOD        = "bilinear"
 
 __C.YOLO.ISP_FLAG            = args.ISP_FLAG
 

@@ -2,23 +2,25 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import utils as utils
-import common as common
-from config_lowlight  import cfg
-from backbone import Darknet53
+import core.utils as utils
+import core.common as common
+from core.config_lowlight  import cfg
+from core.backbone import Darknet53
+from einops import rearrange
 
 class YOLOV3(nn.Module):
     """Implement PyTorch yolov3 here"""
-    def __init__(self, trainable):
+    def __init__(self):
         super(YOLOV3, self).__init__()
 
-        self.trainable          = trainable
         self.classes            = utils.read_class_names(cfg.YOLO.CLASSES)
         self.num_class          = len(self.classes)
         self.strides            = np.array(cfg.YOLO.STRIDES)
         self.anchors            = utils.get_anchors(cfg.YOLO.ANCHORS)
         self.upsample_method    = cfg.YOLO.UPSAMPLE_METHOD
         self.isp_flag           = cfg.YOLO.ISP_FLAG
+        self.anchor_per_scale   = cfg.YOLO.ANCHOR_PER_SCALE
+        self.iou_loss_thresh    = cfg.YOLO.IOU_LOSS_THRESH
 
         self.conv_lbbox         = None
         self.conv_mbbox         = None
@@ -72,6 +74,8 @@ class YOLOV3(nn.Module):
         self.conv57 = common.ConvBlock(512, 256, kernel_size=1, downsample=False, bn=True, activate=True)
         self.conv63 = common.ConvBlock(256, 128, kernel_size=1, downsample=False, bn=True, activate=True)
 
+        self.extractor = common.ExtractParameters2(cfg)
+
     def forward(self, input_data, input_data_clean):
 
         filtered_image_batch    = input_data
@@ -80,8 +84,7 @@ class YOLOV3(nn.Module):
 
         if self.isp_flag:
             input_data = F.interpolate(input_data, size=(256, 256), mode='bilinear')
-            extractor = common.extract_parameters_2(cfg)
-            filter_features = extractor(input_data)
+            filter_features = self.extractor(input_data)
 
             filters = cfg.filters
             filters = [x(input_data, cfg) for x in filters]
@@ -89,19 +92,19 @@ class YOLOV3(nn.Module):
             for j, filter in enumerate(filters):
                 print('    creating filter:', j, 'name:', str(filter.__class__), 'abbr.', filter.get_short_name())
                 print('      filter_features:', filter_features.shape)
-
                 filtered_image_batch, filter_parameter = filter.apply(filtered_image_batch, filter_features)
                 filter_parameters.append(filter_parameter)
                 filter_imgs_series.append(filtered_image_batch)
-
                 print('      output:', filtered_image_batch.shape)
+
+        # wxl：一下三者，包括：滤波器参数、所有滤波器处理后的图像、滤波器处理的中间系列图像
             self.filter_params = filter_parameters
         self.image_isped = filtered_image_batch
         self.filter_imgs_series = filter_imgs_series
 
         self.recovery_loss = torch.sum((filtered_image_batch - input_data_clean) ** 2)
 
-        route_1, route_2, input_data = self.darknet53(input_data, self.trainable)
+        route_1, route_2, input_data = self.darknet53(input_data)
 
         input_data = self.conv_lbbox_model(input_data)
         self.conv_lbbox = self.output_lbbox(input_data)
@@ -125,11 +128,11 @@ class YOLOV3(nn.Module):
         self.pred_lbbox = self.decoder(self.conv_lbbox, self.anchors[2], self.strides[2])
 
 
-    def decode(self, conv_output, anchors, stride):
-        batch_size, output_size, _, _ = conv_output.shape
-        anchor_per_scale = len(anchors)
+    def decoder(self, conv_output, anchors, stride):
+        batch_size, _, output_size, _ = conv_output.shape
 
-        conv_output = conv_output.view(batch_size, output_size, output_size, anchor_per_scale, 5 + self.num_classes)
+        conv_output = rearrange(conv_output, 'b (anchor classes) h w -> b h w anchor classes', classes=5 + self.num_class, anchor=self.anchor_per_scale)
+        # conv_output = conv_output.reshape(batch_size, output_size, output_size, self.anchor_per_scale, 5 + self.num_class)
 
         conv_raw_dxdy = conv_output[..., 0:2]
         conv_raw_dwdh = conv_output[..., 2:4]
@@ -140,10 +143,10 @@ class YOLOV3(nn.Module):
         x = torch.arange(output_size, dtype=torch.int).unsqueeze(0).repeat(output_size, 1)
 
         xy_grid = torch.stack([x, y], dim=-1)
-        xy_grid = xy_grid.unsqueeze(0).unsqueeze(3).repeat(batch_size, 1, 1, anchor_per_scale, 1).float()
+        xy_grid = xy_grid.unsqueeze(0).unsqueeze(3).repeat(batch_size, 1, 1 ,self.anchor_per_scale ,1).float().to("cuda:0")
 
         pred_xy = (torch.sigmoid(conv_raw_dxdy) + xy_grid) * stride
-        pred_wh = (torch.exp(conv_raw_dwdh) * anchors) * stride
+        pred_wh = (torch.exp(conv_raw_dwdh) * torch.from_numpy(anchors).to("cuda:0").unsqueeze(0).unsqueeze(1).unsqueeze(2)) * stride
         pred_xywh = torch.cat([pred_xy, pred_wh], dim=-1)
 
         pred_conf = torch.sigmoid(conv_raw_conf)
@@ -169,13 +172,13 @@ class YOLOV3(nn.Module):
 
         return giou_loss, conf_loss, prob_loss, recovery_loss
         
-    def focal_loss(target, actual, alpha=1, gamma=2):
+    def focal(self, target, actual, alpha=1, gamma=2):
 
         focal_loss = alpha * torch.pow(torch.abs(target - actual), gamma)
 
         return focal_loss
     
-    def bbox_giou(boxes1, boxes2):
+    def bbox_giou(self, boxes1, boxes2):
         boxes1 = torch.cat([boxes1[..., :2] - boxes1[..., 2:] * 0.5,
                             boxes1[..., :2] + boxes1[..., 2:] * 0.5], dim=-1)
         boxes2 = torch.cat([boxes2[..., :2] - boxes2[..., 2:] * 0.5,
@@ -206,7 +209,7 @@ class YOLOV3(nn.Module):
 
         return giou
     
-    def bbox_iou(boxes1, boxes2):
+    def bbox_iou(self, boxes1, boxes2):
         boxes1_area = boxes1[..., 2] * boxes1[..., 3]
         boxes2_area = boxes2[..., 2] * boxes2[..., 3]
 
@@ -223,12 +226,13 @@ class YOLOV3(nn.Module):
         iou = inter_area / union_area
         return iou
     
-    def loss_layer(self, conv, pred, label, bboxes, anchors, stride, num_classes, anchor_per_scale, iou_loss_thresh):
+    def loss_layer(self, conv, pred, label, bboxes, anchors, stride):
         conv_shape  = conv.shape
         batch_size  = conv_shape[0]
-        output_size = conv_shape[1]
+        output_size = conv_shape[2]
         input_size  = stride * output_size
-        conv = conv.view(batch_size, output_size, output_size, anchor_per_scale, 5 + num_classes)
+        conv = rearrange(conv, 'b (anchor classes) h w -> b h w anchor classes', classes=5 + self.num_class, anchor=self.anchor_per_scale)
+        # conv = conv.view(batch_size, output_size, output_size, self.anchor_per_scale, 5 + self.num_class)
         conv_raw_conf = conv[..., 4:5]
         conv_raw_prob = conv[..., 5:]
 
@@ -244,9 +248,9 @@ class YOLOV3(nn.Module):
         bbox_loss_scale = 2.0 - 1.0 * label_xywh[..., 2:3] * label_xywh[..., 3:4] / (input_size ** 2)
         giou_loss = respond_bbox * bbox_loss_scale * (1 - giou)
 
-        iou = self.bbox_iou(pred_xywh.unsqueeze(-2), bboxes.unsqueeze(0).unsqueeze(0).unsqueeze(0))
+        iou = self.bbox_iou(pred_xywh.unsqueeze(-2), bboxes.unsqueeze(1).unsqueeze(1).unsqueeze(1))
         max_iou = torch.max(iou, dim=-1, keepdim=True)[0]
-        respond_bgd = (1.0 - respond_bbox) * (max_iou < iou_loss_thresh).float()
+        respond_bgd = (1.0 - respond_bbox) * (max_iou < self.iou_loss_thresh).float()
 
         conf_focal = self.focal(respond_bbox, pred_conf)
 
